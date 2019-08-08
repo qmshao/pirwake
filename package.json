@@ -1,0 +1,19 @@
+{
+  "name": "pirwake",
+  "version": "1.0.0",
+  "description": "wake up/turn off monitor by PIR sensor",
+  "main": "PIRWake.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qmshao/pirwake.git"
+  },
+  "author": "Quan Min Shao",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/qmshao/pirwake/issues"
+  },
+  "homepage": "https://github.com/qmshao/pirwake#readme"
+}
