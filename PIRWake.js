@@ -1,22 +1,16 @@
 const Gpio = require('onoff').Gpio;
 const exec = require('child_process').exec;
+const fs = require('fs');
+const request = require('request');
 
 PIRWake = {
-    config: {
-        sensorPin: 17,
-        sensorState: 1,
-        alwaysOnPin: false,
-        alwaysOnState: 1,
-        alwaysOffPin: false,
-        alwaysOffState: 1,
-        powerSaving: true,
-        powerSavingDelay: 0,
-        powerSavingNotification: false,
-        powerSavingMessage: "Monitor will be turn Off by PIR module",
-    },
 
     start: function () {
+        let rawdata = fs.readFileSync('config.json');
+        this.config = JSON.parse(rawdata);
+
         this.started = false;
+	
         // Setup for sensor pin
         this.pir = new Gpio(this.config.sensorPin, 'in', 'both');
 
@@ -25,21 +19,21 @@ PIRWake = {
         const valueOff = (this.config.sensorState + 1) % 2;
 
         // Detected movement
-        this.pir.watch(function (err, value) {
+        this.pir.watch( (err, value)=> {
             if (value == valueOn) {
-                if (self.config.powerSaving) {
-                    clearTimeout(self.deactivateMonitorTimeout);
-                    self.activateMonitor();
+                if (this.config.powerSaving) {
+                    clearTimeout(this.deactivateMonitorTimeout);
+                    this.activateMonitor();
                 }
             }
             else if (value == valueOff) {
-                if (!self.config.powerSaving) {
+                if (!this.config.powerSaving) {
                     return;
                 }
 
-                self.deactivateMonitorTimeout = setTimeout(function () {
-                    self.deactivateMonitor();
-                }, self.config.powerSavingDelay * 1000);
+                this.deactivateMonitorTimeout = setTimeout(()=> {
+                    this.deactivateMonitor();
+                }, this.config.powerSavingDelay * 1000);
             }
         });
 
@@ -52,34 +46,31 @@ PIRWake = {
         if (alwaysOffTrigger) {
             return;
         }
-        // If relays are being used in place of HDMI
-        if (this.config.relayPin !== false) {
-            this.relay.writeSync(this.config.relayState);
-        }
-        else if (this.config.relayPin === false) {
-            // Check if hdmi output is already on
-            exec("/usr/bin/vcgencmd display_power").stdout.on('data', function (data) {
-                if (data.indexOf("display_power=0") === 0)
-                    exec("/usr/bin/vcgencmd display_power 1", null);
-            });
-        }
+        // Check if hdmi output is already on
+        exec("/usr/bin/vcgencmd display_power").stdout.on('data', function (data) {
+            if (data.indexOf("display_power=0") === 0)
+		this.switchScreen(true);
+                exec("/usr/bin/vcgencmd display_power 1", null);
+        });
     },
 
     deactivateMonitor: function () {
+	this.switchScreen(false);
         // If always-on is enabled, keep monitor activated
         let alwaysOnTrigger = this.alwaysOn && (this.alwaysOn.readSync() === this.config.alwaysOnState)
         let alwaysOffTrigger = this.alwaysOff && (this.alwaysOff.readSync() === this.config.alwaysOffState)
         if (alwaysOnTrigger && !alwaysOffTrigger) {
             return;
         }
-        // If relays are being used in place of HDMI
-        if (this.config.relayPin !== false) {
-            this.relay.writeSync((this.config.relayState + 1) % 2);
-        }
-        else if (this.config.relayPin === false) {
-            exec("/usr/bin/vcgencmd display_power 0", null);
-        }
+        exec("/usr/bin/vcgencmd display_power 0", null);
     },
 
+    switchScreen: function(screenOn){
+        request(this.config.screenURL + (screenOn?"ON":"OFF"), (err, res, body) => {
+   	    if (err) { return console.log(err); }
+	});
+    }
 
 };
+
+PIRWake.start();
